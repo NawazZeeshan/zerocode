@@ -26,9 +26,11 @@ import org.junit.runner.notification.RunNotifier;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
 
+import static com.google.common.io.Resources.getResource;
 import static org.apache.commons.lang.StringUtils.isEmpty;
 import static org.jsmart.zerocode.core.domain.builders.ZeroCodeExecResultBuilder.newInstance;
 import static org.jsmart.zerocode.core.engine.mocker.RestEndPointMocker.wireMockServer;
@@ -108,18 +110,24 @@ public class ZeroCodeMultiStepsScenarioRunnerImpl implements ZeroCodeMultiStepsS
                     JsonNode jsonNodeBody = thisStep.getRequest();
                     JsonNode payloadFileNode = jsonNodeBody.get("body");
                     String payloadFileString = payloadFileNode != null ? payloadFileNode.asText() : null;
-                    if(payloadFileString != null && payloadFileString.contains(JSON_PAYLOAD_FILE) ){
-                        String resourceJson = payloadFileString.substring(JSON_PAYLOAD_FILE.length());
-                        Object bodyContent = null;
-                        try {
-                            bodyContent = objectMapper.readTree(new File(Resources.getResource(resourceJson).getPath()));
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
+                    List<String> allTokens = new ArrayList<>();
+                    if (payloadFileString != null) {
+                        allTokens = zeroCodeJsonTestProcesor.getAllTokens(payloadFileString);
+                    }
+                    if (allTokens != null && !allTokens.isEmpty()) {
+                        String token = allTokens.get(0);
+                        if (token.startsWith(JSON_PAYLOAD_FILE)) {
+                            String resourceJsonFile = token.substring(JSON_PAYLOAD_FILE.length());
+                            Object bodyContent = null;
+                            try {
+                                bodyContent = objectMapper.readTree(new File(getResource(resourceJsonFile).getPath()));
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+
+                            ((ObjectNode) jsonNodeBody).putPOJO("body", bodyContent);
+                            System.out.println(">>>>>>>>>>>>> payloadFile(modified)- \n" + jsonNodeBody);
                         }
-
-                        ((ObjectNode)jsonNodeBody).putPOJO("body", bodyContent);
-                        System.out.println(">>>>>>>>>>>>> payloadFile(modified)- \n" + jsonNodeBody);
-
                     }
 
                     final String requestJsonAsString = thisStep.getRequest().toString();
@@ -143,59 +151,59 @@ public class ZeroCodeMultiStepsScenarioRunnerImpl implements ZeroCodeMultiStepsS
                     String executionResult = "-response not decided-";
 
                     final String logPrefixRelationshipId = logCorrelationshipPrinter.createRelationshipId();
-    
+
                     try {
                         String serviceName = thisStep.getUrl();
                         String operationName = thisStep.getOperation();
-        
+
                         // Resolve the URL patterns if any
                         serviceName = zeroCodeJsonTestProcesor.resolveStringJson(
-                                        serviceName,
-                                        scenarioExecutionState.getResolvedScenarioState()
-                                                                                );
-        
+                                serviceName,
+                                scenarioExecutionState.getResolvedScenarioState()
+                        );
+
                         final LocalDateTime requestTimeStamp = LocalDateTime.now();
                         switch (serviceType(serviceName, operationName)) {
                             case REST_CALL:
                                 serviceName = getFullyQualifiedRestUrl(serviceName);
                                 logCorrelationshipPrinter.aRequestBuilder()
-                                                .stepLoop(i)
-                                                .relationshipId(logPrefixRelationshipId)
-                                                .requestTimeStamp(requestTimeStamp)
-                                                .step(thisStepName)
-                                                .url(serviceName)
-                                                .method(operationName)
-                                                .request(prettyPrintJson(resolvedRequestJson));
-                
+                                        .stepLoop(i)
+                                        .relationshipId(logPrefixRelationshipId)
+                                        .requestTimeStamp(requestTimeStamp)
+                                        .step(thisStepName)
+                                        .url(serviceName)
+                                        .method(operationName)
+                                        .request(prettyPrintJson(resolvedRequestJson));
+
                                 executionResult = serviceExecutor.executeRESTService(serviceName, operationName, resolvedRequestJson);
                                 break;
-            
+
                             case JAVA_CALL:
                                 logCorrelationshipPrinter.aRequestBuilder()
-                                                .stepLoop(i)
-                                                .relationshipId(logPrefixRelationshipId)
-                                                .requestTimeStamp(requestTimeStamp)
-                                                .step(thisStepName)
-                                                .url(serviceName)
-                                                .method(operationName)
-                                                .request(prettyPrintJson(resolvedRequestJson));
-                
+                                        .stepLoop(i)
+                                        .relationshipId(logPrefixRelationshipId)
+                                        .requestTimeStamp(requestTimeStamp)
+                                        .step(thisStepName)
+                                        .url(serviceName)
+                                        .method(operationName)
+                                        .request(prettyPrintJson(resolvedRequestJson));
+
                                 executionResult = serviceExecutor.executeJavaService(serviceName, operationName, resolvedRequestJson);
                                 break;
-            
+
                             case NONE:
                                 logCorrelationshipPrinter.aRequestBuilder()
-                                                .stepLoop(i)
-                                                .relationshipId(logPrefixRelationshipId)
-                                                .requestTimeStamp(requestTimeStamp)
-                                                .step(thisStepName)
-                                                .url(serviceName)
-                                                .method(operationName)
-                                                .request(prettyPrintJson(resolvedRequestJson));
-                
+                                        .stepLoop(i)
+                                        .relationshipId(logPrefixRelationshipId)
+                                        .requestTimeStamp(requestTimeStamp)
+                                        .step(thisStepName)
+                                        .url(serviceName)
+                                        .method(operationName)
+                                        .request(prettyPrintJson(resolvedRequestJson));
+
                                 executionResult = prettyPrintJson(resolvedRequestJson);
                                 break;
-            
+
                             default:
                                 throw new RuntimeException("Opps! Service Undecided. If it is intentional, then leave it blank for same response as request");
                         }
@@ -300,7 +308,7 @@ public class ZeroCodeMultiStepsScenarioRunnerImpl implements ZeroCodeMultiStepsS
                         /*
                          * FAILED and Exception reports are generated here
                          */
-                        if(!stepOutcome) {
+                        if (!stepOutcome) {
                             reportBuilder.result(reportResultBuilder.build());
                             reportBuilder.printToFile(scenario.getScenarioName() + logCorrelationshipPrinter.getCorrelationId() + ".json");
                         }
@@ -340,22 +348,22 @@ public class ZeroCodeMultiStepsScenarioRunnerImpl implements ZeroCodeMultiStepsS
 
         return true;
     }
-    
+
     public void overridePort(int port) {
         this.port = port + "";
     }
-    
+
     public void overrideHost(String host) {
         this.host = host;
     }
-    
+
     public void overrideApplicationContext(String applicationContext) {
         this.applicationContext = applicationContext;
     }
-    
+
     private ServiceType serviceType(String serviceName, String methodName) {
         ServiceType serviceType;
-        
+
         if (StringUtils.isEmpty(serviceName) || isEmpty(methodName)) {
             serviceType = ServiceType.NONE;
         } else if (serviceName != null && serviceName.contains("/")) {
@@ -363,7 +371,7 @@ public class ZeroCodeMultiStepsScenarioRunnerImpl implements ZeroCodeMultiStepsS
         } else {
             serviceType = ServiceType.JAVA_CALL;
         }
-        
+
         return serviceType;
     }
 
