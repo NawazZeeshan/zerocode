@@ -38,6 +38,8 @@ public class ZeroCodeJsonTestProcesorImpl implements ZeroCodeJsonTestProcesor {
     /*
      * General place holders
      */
+    public static final String JSON_PAYLOAD_FILE = "$JSON.PAYLOAD.FILE:";
+
     private static final String PREFIX_ASU = "ASU";
     private static final String RANDOM_NUMBER = "RANDOM.NUMBER";
     private static final String RANDOM_STRING_PREFIX = "RANDOM.STRING:";
@@ -85,7 +87,7 @@ public class ZeroCodeJsonTestProcesorImpl implements ZeroCodeJsonTestProcesor {
 
     @Override
     public String resolveStringJson(String requestJsonOrAnyString, String scenarioStateJson) {
-        Map<String, String> parammap = new HashMap<>();
+        Map<String, Object> parammap = new HashMap<>();
 
         final List<String> allTokens = getAllTokens(requestJsonOrAnyString);
         allTokens.forEach(runTimeToken -> {

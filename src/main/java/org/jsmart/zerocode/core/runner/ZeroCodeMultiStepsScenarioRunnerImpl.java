@@ -1,10 +1,12 @@
 package org.jsmart.zerocode.core.runner;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
-
 import org.apache.commons.lang.StringUtils;
 import org.jsmart.zerocode.core.domain.ScenarioSpec;
 import org.jsmart.zerocode.core.domain.Step;
@@ -21,16 +23,16 @@ import org.jsmart.zerocode.core.utils.ServiceType;
 import org.junit.runner.Description;
 import org.junit.runner.notification.RunNotifier;
 
+import java.io.File;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
 import static org.apache.commons.lang.StringUtils.isEmpty;
 import static org.jsmart.zerocode.core.domain.builders.ZeroCodeExecResultBuilder.newInstance;
 import static org.jsmart.zerocode.core.engine.mocker.RestEndPointMocker.wireMockServer;
+import static org.jsmart.zerocode.core.engine.preprocessor.ZeroCodeJsonTestProcesorImpl.JSON_PAYLOAD_FILE;
 import static org.jsmart.zerocode.core.utils.SmartUtils.prettyPrintJson;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -101,6 +103,24 @@ public class ZeroCodeMultiStepsScenarioRunnerImpl implements ZeroCodeMultiStepsS
                     LOGGER.info("\n### Executing Step -->> Count No: " + i);
                     logCorrelationshipPrinter = LogCorrelationshipPrinter.newInstance(LOGGER);
                     logCorrelationshipPrinter.stepLoop(i);
+
+                    ///
+                    JsonNode jsonNodeBody = thisStep.getRequest();
+                    JsonNode payloadFileNode = jsonNodeBody.get("body");
+                    String payloadFileString = payloadFileNode != null ? payloadFileNode.asText() : null;
+                    if(payloadFileString != null && payloadFileString.contains(JSON_PAYLOAD_FILE) ){
+                        String resourceJson = payloadFileString.substring(JSON_PAYLOAD_FILE.length());
+                        Object bodyContent = null;
+                        try {
+                            bodyContent = objectMapper.readTree(new File(Resources.getResource(resourceJson).getPath()));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        ((ObjectNode)jsonNodeBody).putPOJO("body", bodyContent);
+                        System.out.println(">>>>>>>>>>>>> payloadFile(modified)- \n" + jsonNodeBody);
+
+                    }
 
                     final String requestJsonAsString = thisStep.getRequest().toString();
 
